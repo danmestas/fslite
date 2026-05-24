@@ -5,8 +5,8 @@
 //
 //	fslite                       # serve (env-driven; what docker compose runs)
 //	fslite serve                 # same; explicit form
-//	fslite demo                  # start a local demo daemon against ./demo-data
-//	fslite demo --repo path      # demo serving an existing fossil repo
+//	fslite demo                  # spawn daemon + auto-mount at /Volumes/demo.localhost
+//	fslite demo --repo path      # demo serving a specific fossil repo
 //	fslite mount [--agent x]     # mount in Finder
 //	fslite unmount               # unmount
 //	fslite commit "msg"          # drain the overlay into a Fossil check-in
@@ -24,7 +24,7 @@ import (
 
 type cli struct {
 	Serve   serveCmd   `cmd:"" default:"withargs" help:"Run the WebDAV+NATS daemon (default; reads env vars)."`
-	Demo    demoCmd    `cmd:"" help:"Start a local demo daemon (defaults to ./demo-data/repo.fossil; --repo to pick any fossil)."`
+	Demo    demoCmd    `cmd:"" help:"Spawn a daemon + auto-mount in Finder (macOS). Defaults to ~/.fslite/demo/repo.fossil; --repo to serve a specific fossil."`
 	MCP     mcpCmd     `cmd:"" name:"mcp" help:"Run as a Model Context Protocol server over stdio — agents get filesystem ops without mounting."`
 	Mount   mountCmd   `cmd:"" help:"Mount the running daemon's WebDAV URL in Finder (macOS)."`
 	Unmount unmountCmd `cmd:"" help:"Unmount the daemon's volume (macOS)."`
