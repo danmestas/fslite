@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.3] — 2026-05-24
+
+### Changed
+
+- **`fslite demo` is now self-contained.** Drops the `--repo` flag,
+  creates a fresh `mkdtemp` repo, seeds it with example files
+  (`README.md`, `notes/scratch.md`, `src/hello.go`), mounts at
+  `/Volumes/demo.localhost`, and **deletes the repo on Ctrl-C**.
+
+### Added
+
+- **`fslite open <repo>`** — serves any fossil file + auto-mounts in
+  Finder + blocks on Ctrl-C. The repo persists; only the daemon and
+  mount are torn down. Bootstraps the file if missing. This is the
+  command that took the `--repo` role demo used to confuse.
+
 ## [0.1.2] — 2026-05-24
 
 ### Changed
