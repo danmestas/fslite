@@ -49,7 +49,6 @@ func (s *serveCmd) Run() error {
 		return err
 	}
 	s.AgentID = agentID
-	log.Printf("fslite: agent=%s repo=%s", agentID, s.RepoPath)
 
 	cfg := vfs.Config{
 		RepoPath:     s.RepoPath,
@@ -58,10 +57,10 @@ func (s *serveCmd) Run() error {
 		User:         s.AgentID,
 	}
 
+	mode := "local-only"
 	var nc *nats.Conn
 	switch {
 	case s.NoNATS:
-		log.Printf("fslite: --no-nats set; local-only mode (autosync + cross-agent locks disabled)")
 		cfg.NoNATS = true
 	case s.NATSURL != "":
 		var err error
@@ -78,9 +77,7 @@ func (s *serveCmd) Run() error {
 			ProjectCode: s.ProjectCode,
 			AgentID:     s.AgentID,
 		}
-		log.Printf("fslite: connected to NATS at %s as agent=%s project=%s", s.NATSURL, s.AgentID, s.ProjectCode)
-	default:
-		log.Printf("fslite: no NATS_URL set; local-only mode")
+		mode = fmt.Sprintf("synced via %s", s.NATSURL)
 	}
 
 	v, err := vfs.New(cfg)
@@ -180,7 +177,7 @@ func (s *serveCmd) Run() error {
 	defer removeState(s.AgentID)
 
 	go func() {
-		log.Printf("fslite: serving WebDAV on %s (agent=%s repo=%s)", s.HTTPAddr, s.AgentID, s.RepoPath)
+		log.Printf("fslite: agent=%s mode=%s url=http://%s", s.AgentID, mode, s.HTTPAddr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %v", err)
 		}
@@ -212,7 +209,7 @@ func ensureRepo(repoPath, seedPath, projectCode string) error {
 			return copyFile(seedPath, repoPath)
 		}
 	}
-	log.Printf("fslite: no seed at %q; creating empty repo + initial commit at %s", seedPath, repoPath)
+	log.Printf("fslite: bootstrapping fresh repo at %s", repoPath)
 	eng, err := engine.Create(repoPath)
 	if err != nil {
 		return fmt.Errorf("engine.Create: %w", err)

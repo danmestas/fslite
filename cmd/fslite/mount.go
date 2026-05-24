@@ -141,6 +141,51 @@ func (u *unmountCmd) Run() error {
 	return nil
 }
 
+// mountWebDAV mounts daemonURL via osascript at /Volumes/<volumeName>.localhost.
+// Returns the resulting mountpoint path. macOS-only.
+func mountWebDAV(daemonURL, volumeName string) (string, error) {
+	if runtime.GOOS != "darwin" {
+		return "", fmt.Errorf("mount: only supported on macOS (runtime is %s)", runtime.GOOS)
+	}
+	u, err := url.Parse(daemonURL)
+	if err != nil {
+		return "", fmt.Errorf("parse daemon URL %q: %w", daemonURL, err)
+	}
+	port := u.Port()
+	host := volumeName + ".localhost"
+	if port != "" {
+		u.Host = host + ":" + port
+	} else {
+		u.Host = host
+	}
+	mountURL := u.String()
+
+	out, err := exec.Command("osascript", "-e",
+		fmt.Sprintf(`mount volume "%s"`, mountURL)).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("osascript mount volume: %w (%s)", err, strings.TrimSpace(string(out)))
+	}
+	return mountpointFromURL(mountURL), nil
+}
+
+// unmountWebDAV unmounts the given path. Idempotent — silent success if
+// already unmounted. macOS-only.
+func unmountWebDAV(path string) error {
+	if runtime.GOOS != "darwin" {
+		return nil
+	}
+	out, err := exec.Command("diskutil", "unmount", path).CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	out2, err2 := exec.Command("/sbin/umount", path).CombinedOutput()
+	if err2 == nil {
+		return nil
+	}
+	return fmt.Errorf("unmount %s: diskutil failed (%s); umount failed (%s)",
+		path, strings.TrimSpace(string(out)), strings.TrimSpace(string(out2)))
+}
+
 // mountpointFromURL derives the macOS mount path from a WebDAV URL.
 // macOS mounts WebDAV under /Volumes/<host>.
 func mountpointFromURL(rawURL string) string {
