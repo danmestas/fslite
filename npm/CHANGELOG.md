@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.4] — 2026-05-24
+
+### Added
+
+- **Opt-in auto-commit.** `--auto-commit DURATION` (or
+  `FSLITE_AUTO_COMMIT`) on `serve`/`demo`/`open`/`mcp` enables a
+  debounced auto-commit: each overlay write resets a timer, and when
+  the timer elapses the overlay drains into a Fossil check-in with
+  a generated message (`auto: 3 files in src/`). Default off (manual
+  `fslite commit` still required without the flag); suggested value
+  when enabling: `10s`.
+
+  Notably **not added**: commit-on-close. The overlay is durable
+  SQLite state inside the `.fossil` file — killing the daemon does
+  not lose writes. Reopening picks up pending writes intact. Session
+  boundary is therefore intentionally separate from commit boundary.
+
 ## [0.1.3] — 2026-05-24
 
 ### Changed
