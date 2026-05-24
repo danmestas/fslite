@@ -4,8 +4,8 @@ go 1.26.0
 
 require (
 	github.com/alecthomas/kong v1.15.0
-	github.com/danmestas/libfossil v0.1.0
-	github.com/danmestas/libfossil/db/driver/modernc v0.1.0
+	github.com/danmestas/libfossil v0.6.3
+	github.com/danmestas/libfossil/db/driver/modernc v0.2.0
 	github.com/danmestas/libfossil/db/driver/ncruces v0.2.0
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/nats-io/nats-server/v2 v2.14.1
@@ -43,10 +43,4 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.46.1 // indirect
-)
-
-replace (
-	github.com/danmestas/libfossil => /Users/dmestas/projects/libfossil
-	github.com/danmestas/libfossil/db/driver/modernc => /Users/dmestas/projects/libfossil/db/driver/modernc
-	github.com/danmestas/libfossil/db/driver/ncruces => /Users/dmestas/projects/libfossil/db/driver/ncruces
 )
