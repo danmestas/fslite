@@ -1,5 +1,5 @@
 {
-  "name": "fslite",
+  "name": "@agent-ops/fslite",
   "version": "0.1.0",
   "description": "Single-file content-addressed filesystem for autonomous agents — Fossil-backed worktree with full history, surfaced as an MCP server",
   "keywords": [
@@ -25,6 +25,7 @@
     "fslite": "./bin/fslite.js"
   },
   "scripts": {
+    "build": "echo 'no-op: install.js builds the Go binary at user-install time'",
     "postinstall": "node install.js",
     "test": "node test.js"
   },
