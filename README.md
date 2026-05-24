@@ -15,8 +15,10 @@ You can inspect the resulting repo any time with `fossil ui mybox.fossil`, merge
 ## Install
 
 ```sh
-npm install -g fslite
+npm install -g @agent-ops/fslite
 ```
+
+(The CLI command is still `fslite`; npm scope is namespace only.)
 
 Or build from source:
 

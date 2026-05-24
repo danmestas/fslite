@@ -7,8 +7,10 @@ A Fossil-backed worktree for autonomous agents. Each agent gets an isolated file
 ## Install
 
 ```sh
-npm install -g fslite
+npm install -g @agent-ops/fslite
 ```
+
+(The CLI command is still `fslite`; npm scope is namespace only.)
 
 The postinstall step runs `go install` against `github.com/danmestas/fslite/cmd/fslite@latest`, so **Go 1.21+ is required** on your machine for now. Prebuilt binaries are planned for v0.2.
 
