@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.1] — 2026-05-24
+
+### Fixed
+
+- `npm install -g @agent-ops/fslite` postinstall failed in v0.1.0 because
+  the Go module had `replace` directives pointing at local libfossil
+  checkouts (`/Users/.../libfossil`). `go install` refuses modules with
+  replace directives. Removed the replaces; pinned to public libfossil
+  v0.6.3 + driver v0.2.0 from GitHub tags. End-to-end install now
+  works.
+
 ## [0.1.0] — 2026-05-24
 
 Initial release.
