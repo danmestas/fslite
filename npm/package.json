@@ -1,6 +1,6 @@
 {
   "name": "@agent-ops/fslite",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Single-file content-addressed filesystem for autonomous agents — Fossil-backed worktree with full history, surfaced as an MCP server",
   "keywords": [
     "fossil",
