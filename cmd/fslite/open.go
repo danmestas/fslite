@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // openCmd serves a specific fossil repo, mounts it in Finder on macOS,
@@ -11,12 +12,13 @@ import (
 // process are torn down on exit. If the repo file doesn't exist, it's
 // bootstrapped with an initial commit so first-run works.
 type openCmd struct {
-	Repo       string `arg:"" name:"repo" help:"Fossil repo file to open (created if missing)."`
-	HTTPAddr   string `name:"http" help:"WebDAV bind address. Default: 127.0.0.1:<auto-picked>."`
-	AgentID    string `name:"agent" help:"Agent name. Default: derived from the repo filename."`
-	RandomName bool   `name:"random-name" help:"Generate a random electric-hyena-style agent name."`
-	NoMount    bool   `name:"no-mount" help:"Don't auto-mount in Finder (macOS); just run the daemon."`
-	Verbose    bool   `name:"verbose" help:"Log every incoming WebDAV request."`
+	Repo       string        `arg:"" name:"repo" help:"Fossil repo file to open (created if missing)."`
+	HTTPAddr   string        `name:"http" help:"WebDAV bind address. Default: 127.0.0.1:<auto-picked>."`
+	AgentID    string        `name:"agent" help:"Agent name. Default: derived from the repo filename."`
+	RandomName bool          `name:"random-name" help:"Generate a random electric-hyena-style agent name."`
+	NoMount    bool          `name:"no-mount" help:"Don't auto-mount in Finder (macOS); just run the daemon."`
+	AutoCommit time.Duration `name:"auto-commit" help:"Debounced auto-commit window. e.g. 10s. Default 0 = manual commits only."`
+	Verbose    bool          `name:"verbose" help:"Log every incoming WebDAV request."`
 }
 
 func (o *openCmd) Run() error {
@@ -33,6 +35,7 @@ func (o *openCmd) Run() error {
 		HTTPAddr:   o.HTTPAddr,
 		AgentID:    o.AgentID,
 		RandomName: o.RandomName,
+		AutoCommit: o.AutoCommit,
 		NoMount:    o.NoMount,
 		Verbose:    o.Verbose,
 	})

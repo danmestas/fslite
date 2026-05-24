@@ -39,7 +39,8 @@ type mcpCmd struct {
 	SeedRepo string `name:"seed" env:"SEED_REPO" help:"Optional seed repo to copy on first start."`
 	User     string `name:"user" default:"fslite-mcp" help:"Fossil user attribution for commits issued via the commit tool."`
 	Version  string `name:"version" default:"tip" help:"Checkin to mount initially (tip / trunk / branch / UUID)."`
-	NoNATS   bool   `name:"no-nats" env:"FSLITE_NO_NATS" default:"true" help:"Local-only mode (skip NATS even if NATS_URL is set)."`
+	NoNATS     bool          `name:"no-nats" env:"FSLITE_NO_NATS" default:"true" help:"Local-only mode (skip NATS even if NATS_URL is set)."`
+	AutoCommit time.Duration `name:"auto-commit" env:"FSLITE_AUTO_COMMIT" help:"Debounced auto-commit window. e.g. 10s. Default 0 = agent calls commit() explicitly."`
 }
 
 func (m *mcpCmd) Run() error {
@@ -56,6 +57,7 @@ func (m *mcpCmd) Run() error {
 		EnableWrites: true,
 		User:         m.User,
 		NoNATS:       m.NoNATS,
+		AutoCommit:   m.AutoCommit,
 	})
 	if err != nil {
 		return fmt.Errorf("vfs.New: %w", err)

@@ -12,6 +12,7 @@ package vfs
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -54,6 +55,12 @@ type Config struct {
 	// otherwise. The sentinel value "-" disables filtering — every
 	// overlay row is committed, including sidecars. See vfs/ignore.go.
 	IgnoreGlob string
+	// AutoCommit, when non-zero, enables a debounced auto-commit: the
+	// overlay is drained into a new check-in after AutoCommit elapses
+	// with no further writes. Each write resets the timer. Default 0
+	// = disabled (manual `Commit` only). Suggested setting: 10s.
+	// Auto-commits use a generated message ("auto: 3 files in src/").
+	AutoCommit time.Duration
 }
 
 // VFS implements fs.FS, fs.ReadDirFS, and fs.StatFS over a Fossil checkin,
@@ -90,6 +97,14 @@ type VFS struct {
 	// LockSystem; nil when sync is disabled (WebDAVHandler falls back
 	// to MemLS in that case).
 	lockSystem *natsLockSystem
+
+	// Auto-commit state (Config.AutoCommit > 0). Each overlay write
+	// resets the timer; when it fires, the overlay drains into a
+	// check-in. Close stops the timer.
+	autoCommit       time.Duration
+	autoCommitMu     sync.Mutex
+	autoCommitTimer  *time.Timer
+	autoCommitClosed bool
 }
 
 // CheckinID identifies a Fossil check-in by RID + UUID.
@@ -136,6 +151,7 @@ func New(cfg Config) (*VFS, error) {
 		manifestFiles: files,
 		overlay:       map[string]*overlayEntry{},
 		sizes:         map[string]int64{},
+		autoCommit:    cfg.AutoCommit,
 	}
 
 	if cfg.EnableWrites {
@@ -186,12 +202,96 @@ func (v *VFS) SetIgnoreGlob(glob string) error {
 }
 
 // Close releases the underlying Fossil repository handle and tears down
-// any NATS sync subscriptions.
+// any NATS sync subscriptions + the auto-commit timer.
 func (v *VFS) Close() error {
+	v.autoCommitMu.Lock()
+	v.autoCommitClosed = true
+	if v.autoCommitTimer != nil {
+		v.autoCommitTimer.Stop()
+	}
+	v.autoCommitMu.Unlock()
 	if v.sync != nil {
 		v.sync.close()
 	}
 	return v.eng.Close()
+}
+
+// bumpAutoCommit (re)arms the auto-commit debounce timer. No-op when
+// AutoCommit is disabled or the VFS is closing.
+func (v *VFS) bumpAutoCommit() {
+	if v.autoCommit <= 0 {
+		return
+	}
+	v.autoCommitMu.Lock()
+	defer v.autoCommitMu.Unlock()
+	if v.autoCommitClosed {
+		return
+	}
+	if v.autoCommitTimer == nil {
+		v.autoCommitTimer = time.AfterFunc(v.autoCommit, v.autoCommitFire)
+	} else {
+		v.autoCommitTimer.Reset(v.autoCommit)
+	}
+}
+
+// autoCommitFire is the timer callback: drains the overlay into a
+// check-in with a generated message. ErrNothingToCommit is silently
+// swallowed (the timer fired but everything had already been
+// committed by an explicit `Commit` call, or the overlay was all
+// ignore-glob matches).
+func (v *VFS) autoCommitFire() {
+	v.autoCommitMu.Lock()
+	if v.autoCommitClosed {
+		v.autoCommitMu.Unlock()
+		return
+	}
+	v.autoCommitMu.Unlock()
+	msg := v.autoCommitMessage()
+	if _, err := v.Commit(msg); err != nil && !errors.Is(err, ErrNothingToCommit) {
+		// Swallow — auto-commit is best-effort. The next explicit
+		// `Commit` will surface the same error if it persists.
+		_ = err
+	}
+}
+
+// autoCommitMessage builds a one-line summary of the overlay's current
+// pending changes, grouped by top-level directory. Examples:
+//   - "auto: 3 files in src/"
+//   - "auto: 2 files in src/, 1 file in docs/"
+//   - "auto: 1 file" (file at root)
+func (v *VFS) autoCommitMessage() string {
+	rows := v.overlayList()
+	if len(rows) == 0 {
+		return "auto: no pending changes"
+	}
+	counts := map[string]int{}
+	for _, r := range rows {
+		top := "/"
+		if i := strings.Index(r.path, "/"); i >= 0 {
+			top = r.path[:i+1]
+		}
+		counts[top]++
+	}
+	dirs := make([]string, 0, len(counts))
+	for d := range counts {
+		dirs = append(dirs, d)
+	}
+	sort.Strings(dirs)
+	parts := make([]string, 0, len(dirs))
+	for _, d := range dirs {
+		label := fmt.Sprintf("%d files", counts[d])
+		if counts[d] == 1 {
+			label = "1 file"
+		}
+		if d != "/" {
+			label += " in " + d
+		}
+		parts = append(parts, label)
+		if len(parts) == 3 {
+			break
+		}
+	}
+	return "auto: " + strings.Join(parts, ", ")
 }
 
 // ---------------- fs.FS / fs.ReadDirFS / fs.StatFS ----------------

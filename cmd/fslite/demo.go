@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/danmestas/fslite/engine"
 )
@@ -13,9 +14,10 @@ import (
 // Ctrl-C unmounts + deletes the repo entirely. No flags for picking
 // the repo path — for that, use `fslite open <repo>`.
 type demoCmd struct {
-	HTTPAddr string `name:"http" help:"WebDAV bind address. Default: 127.0.0.1:<auto-picked>."`
-	NoMount  bool   `name:"no-mount" help:"Don't auto-mount in Finder (macOS); just run the daemon."`
-	Verbose  bool   `name:"verbose" help:"Log every incoming WebDAV request."`
+	HTTPAddr   string        `name:"http" help:"WebDAV bind address. Default: 127.0.0.1:<auto-picked>."`
+	NoMount    bool          `name:"no-mount" help:"Don't auto-mount in Finder (macOS); just run the daemon."`
+	AutoCommit time.Duration `name:"auto-commit" help:"Debounced auto-commit window. e.g. 10s. Default 0 = manual commits only."`
+	Verbose    bool          `name:"verbose" help:"Log every incoming WebDAV request."`
 }
 
 func (d *demoCmd) Run() error {
@@ -37,6 +39,7 @@ func (d *demoCmd) Run() error {
 		HTTPAddr:   d.HTTPAddr,
 		AgentID:    "demo",
 		VolumeName: "demo",
+		AutoCommit: d.AutoCommit,
 		NoMount:    d.NoMount,
 		Verbose:    d.Verbose,
 		OnExit: func() {

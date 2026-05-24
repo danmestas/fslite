@@ -26,6 +26,7 @@ type runMountArgs struct {
 	RandomName bool
 	NoMount    bool
 	VolumeName string // empty → use the agent name
+	AutoCommit time.Duration
 	Verbose    bool
 	OnExit     func() // optional callback fired after shutdown (e.g. cleanup of seed dir)
 }
@@ -50,6 +51,9 @@ func runServeAndMount(args runMountArgs) error {
 		serveArgs = append(serveArgs, "--agent", args.AgentID)
 	case args.RandomName:
 		serveArgs = append(serveArgs, "--random-name")
+	}
+	if args.AutoCommit > 0 {
+		serveArgs = append(serveArgs, "--auto-commit", args.AutoCommit.String())
 	}
 	if args.Verbose {
 		serveArgs = append(serveArgs, "--verbose")

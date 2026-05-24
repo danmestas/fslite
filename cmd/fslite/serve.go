@@ -33,6 +33,7 @@ type serveCmd struct {
 	NATSURL     string `name:"nats" env:"NATS_URL" help:"NATS broker URL (enables autosync when set; ignored if --no-nats)."`
 	HTTPAddr    string `name:"http" env:"HTTP_ADDR" default:"0.0.0.0:8080" help:"WebDAV bind address."`
 	NoNATS      bool   `name:"no-nats" env:"FSLITE_NO_NATS" help:"Local-only mode. Skip all NATS wiring even if NATS_URL is set; cross-agent sync + locks are disabled."`
+	AutoCommit  time.Duration `name:"auto-commit" env:"FSLITE_AUTO_COMMIT" help:"Debounced auto-commit window. e.g. 10s. Default 0 = manual commits only. Each overlay write resets the timer; when it elapses, the overlay drains into a new check-in with a generated message."`
 	Verbose     bool   `name:"verbose" env:"FSLITE_VERBOSE" help:"Log every incoming WebDAV request (method, path, headers)."`
 }
 
@@ -55,6 +56,7 @@ func (s *serveCmd) Run() error {
 		Version:      "tip",
 		EnableWrites: true,
 		User:         s.AgentID,
+		AutoCommit:   s.AutoCommit,
 	}
 
 	mode := "local-only"
