@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: test ${{ matrix.os }} (Go ${{ matrix.go }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        go: ["1.26"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Unit + integration tests
+        run: go test -buildvcs=false -timeout 5m ./engine/... ./vfs/...
+
+      - name: WASM cross-compile (wasip1)
+        run: GOOS=wasip1 GOARCH=wasm go build -v ./engine/... ./vfs/...
+
+      - name: WASM cross-compile (js)
+        run: GOOS=js GOARCH=wasm go build -v ./engine/... ./vfs/...
+
+  docker-e2e:
+    name: cross-container e2e (docker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+
+      # GHA runners are amd64; the Makefile + Dockerfile pick up TARGETARCH
+      # from `go env GOARCH` for the host build but we set it explicitly
+      # here for clarity and so the layer names match exactly.
+      - name: Build image + run cross-container e2e
+        env:
+          RUN_DOCKER_E2E: "1"
+          TARGETARCH: amd64
+        run: |
+          make docker-image TARGETARCH=amd64
+          go test -v -timeout 5m ./docker/

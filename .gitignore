@@ -1,0 +1,28 @@
+# Build artefacts
+/fslite
+/bin/
+*.fossil
+*.test
+
+# Demo / temp working dirs
+demo-data/
+
+# npm package build artefacts (the Go binary is rebuilt by postinstall);
+# keep the directory + .js shim, ignore native binaries dropped in.
+/npm/bin/fslite
+/npm/bin/fslite.exe
+/npm/node_modules/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Anything starting with a dot at repo root is ignored by default;
+# track only the explicit allowlist below. Keeps contributor-local
+# tooling state out of commits regardless of which tools they run.
+/.*
+!/.gitignore
+!/.github/
+!/.npmignore

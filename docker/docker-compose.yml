@@ -1,0 +1,98 @@
+name: fslite-e2e
+
+# Cross-process / cross-container e2e harness:
+#   - nats:      JetStream-enabled NATS broker (required for the
+#                cross-agent WebDAV lock system + sync transport).
+#   - seeder:    one-shot. Writes a seed fossil repo with PROJECT_CODE
+#                into the shared seed volume, then exits.
+#   - agentA / agentB: each owns its own data volume, started with a
+#                copy of the seed file. Sync converges through NATS.
+#
+# Bring up:  docker compose -f docker/docker-compose.yml up -d
+# Tail logs: docker compose -f docker/docker-compose.yml logs -f
+# Tear down: docker compose -f docker/docker-compose.yml down -v
+#
+# Project code stays fixed across runs so a re-seed produces identical
+# fossil files (useful when iterating on the agent code). For a fresh
+# project, run `docker compose down -v` first to drop the volumes.
+
+x-project-code: &project_code "abcdef0123456789abcdef0123456789abcdef01"
+
+services:
+  nats:
+    image: nats:2.10-alpine
+    # -js: JetStream (required for the lock KV).
+    # -sd: storage directory.
+    # -m:  expose the HTTP monitoring port (/healthz comes from this).
+    command: ["-js", "-sd", "/data", "-m", "8222"]
+    ports:
+      - "127.0.0.1:14222:4222"
+    volumes:
+      - nats_data:/data
+    # Healthcheck: busybox nc TCP probe. The alpine image ships nc but
+    # not wget; /dev/tcp is bash-specific so won't work in ash.
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "4222"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 3s
+
+  seeder:
+    image: fslite:e2e
+    user: "0:0"  # need write access to the volume root
+    environment:
+      REPO_PATH: /seed/repo.fossil
+      PROJECT_CODE: *project_code
+    volumes:
+      - seed_data:/seed
+    entrypoint: ["/usr/local/bin/fslite-seed"]
+    restart: "no"
+
+  agentA:
+    image: fslite:e2e
+    user: "0:0"
+    environment:
+      AGENT_ID: agentA
+      PROJECT_CODE: *project_code
+      NATS_URL: nats://nats:4222
+      REPO_PATH: /data/repo.fossil
+      SEED_REPO: /seed/repo.fossil
+      HTTP_ADDR: "0.0.0.0:8080"
+    volumes:
+      - agentA_data:/data
+      - seed_data:/seed:ro
+    depends_on:
+      nats:
+        condition: service_healthy
+      seeder:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:18081:8080"
+
+  agentB:
+    image: fslite:e2e
+    user: "0:0"
+    environment:
+      AGENT_ID: agentB
+      PROJECT_CODE: *project_code
+      NATS_URL: nats://nats:4222
+      REPO_PATH: /data/repo.fossil
+      SEED_REPO: /seed/repo.fossil
+      HTTP_ADDR: "0.0.0.0:8080"
+    volumes:
+      - agentB_data:/data
+      - seed_data:/seed:ro
+    depends_on:
+      nats:
+        condition: service_healthy
+      seeder:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:18082:8080"
+
+volumes:
+  nats_data:
+  seed_data:
+  agentA_data:
+  agentB_data:

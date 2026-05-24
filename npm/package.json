@@ -1,0 +1,43 @@
+{
+  "name": "fslite",
+  "version": "0.1.0",
+  "description": "Single-file content-addressed filesystem for autonomous agents — Fossil-backed worktree with full history, surfaced as an MCP server",
+  "keywords": [
+    "fossil",
+    "filesystem",
+    "vfs",
+    "mcp",
+    "model-context-protocol",
+    "agent",
+    "worktree",
+    "webdav",
+    "sqlite"
+  ],
+  "homepage": "https://github.com/danmestas/fslite",
+  "bugs": "https://github.com/danmestas/fslite/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danmestas/fslite.git"
+  },
+  "license": "MIT",
+  "author": "Dan Mestas",
+  "bin": {
+    "fslite": "./bin/fslite.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js",
+    "test": "node test.js"
+  },
+  "files": [
+    "bin/",
+    "install.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "config": {
+    "fslite_go_package": "github.com/danmestas/fslite/cmd/fslite@latest"
+  }
+}

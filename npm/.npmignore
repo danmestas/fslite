@@ -1,0 +1,13 @@
+# Don't ship the built binary — postinstall builds it on the user's
+# machine. Keeps the npm package tiny.
+bin/fslite
+bin/fslite.exe
+
+# Don't ship the smoke test — it's for our CI only.
+test.js
+
+# Editor / OS / VCS noise that might leak in.
+.DS_Store
+.idea/
+.vscode/
+*.swp
