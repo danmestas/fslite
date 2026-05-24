@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.2] — 2026-05-24
+
+### Changed
+
+- `fslite demo` is now a one-command experience: spawns the daemon,
+  auto-mounts at `/Volumes/demo.localhost` on macOS, opens the
+  mountpoint in Finder, and blocks on Ctrl-C. On signal it unmounts
+  + shuts the child down. `--no-mount` for headless / non-macOS.
+- Demo repo defaults to `~/.fslite/demo/repo.fossil` (stable across
+  cwds) instead of `./demo-data/repo.fossil` (which depended on
+  wherever you ran `fslite demo` from). Override with `--repo`.
+- Demo port defaults to a free auto-picked port (was hardcoded 8080;
+  failed if anything else was on it). Override with `--http`.
+- Daemon startup log is now one consolidated line:
+  `fslite: agent=X mode=Y url=Z`. Dropped the duplicate
+  `agent=X repo=Y` and the `--no-nats set` line.
+- Bootstrap log only fires the first time a repo is created
+  (was a weird `no seed at ""` message every run).
+
 ## [0.1.1] — 2026-05-24
 
 ### Fixed
