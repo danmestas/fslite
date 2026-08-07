@@ -391,6 +391,13 @@ func (v *VFS) OpenFile(name string, flag int, perm fs.FileMode) (fs.File, error)
 		permStr = "x"
 	}
 
+	// Opening for write is itself a change when it creates the file or
+	// truncates an existing one, even if the caller never writes a byte.
+	// Close must persist those, or an empty file silently fails to exist —
+	// which breaks WebDAV LOCK on an unmapped URL (RFC 4918 §9.10.4 requires
+	// it to create an empty locked resource) and any `: > file` truncation.
+	truncated := hasExisting && flag&os.O_TRUNC != 0
+
 	return &vfsWriteFile{
 		v:      v,
 		name:   name,
@@ -398,6 +405,7 @@ func (v *VFS) OpenFile(name string, flag int, perm fs.FileMode) (fs.File, error)
 		buf:    buf,
 		offset: int64(len(buf)),
 		append: flag&os.O_APPEND != 0,
+		dirty:  created || truncated,
 	}, nil
 }
 

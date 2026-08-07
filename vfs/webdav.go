@@ -42,7 +42,7 @@ func (v *VFS) WebDAVRawHandler() *webdav.Handler {
 	if v.lockSystem != nil {
 		ls = v.lockSystem
 	} else {
-		ls = webdav.NewMemLS()
+		ls = &partialTokenLS{inner: webdav.NewMemLS()}
 	}
 	return &webdav.Handler{
 		FileSystem: v.WebDAVFileSystem(),
