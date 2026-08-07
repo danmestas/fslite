@@ -12,7 +12,7 @@ import (
 	"time"
 
 
-	"github.com/danmestas/libfossil"
+	"github.com/danmestas/go-libfossil"
 
 	"github.com/danmestas/fslite/vfs"
 )

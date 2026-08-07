@@ -6,4 +6,4 @@ package engine
 // Wasm targets pick up driver_ncruces.go instead, which embeds SQLite
 // as WASM and runs it via wazero — slower but the only fully-portable
 // path under wasip1.
-import _ "github.com/danmestas/libfossil/db/driver/modernc"
+import _ "github.com/danmestas/go-libfossil/db/driver/modernc"

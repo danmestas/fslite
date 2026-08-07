@@ -6,4 +6,4 @@ package engine
 // embeds CGo-free SQLite via wazero. Works under wasip1 (host syscalls
 // for filesystem) and under js (where go-sqlite3-opfs is layered on top
 // for OPFS storage; the caller wires that in).
-import _ "github.com/danmestas/libfossil/db/driver/ncruces"
+import _ "github.com/danmestas/go-libfossil/db/driver/ncruces"

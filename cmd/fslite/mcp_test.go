@@ -10,7 +10,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/danmestas/libfossil"
+	"github.com/danmestas/go-libfossil"
 
 	"github.com/danmestas/fslite/vfs"
 )
