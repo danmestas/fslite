@@ -57,19 +57,20 @@ The agent now has these tools:
 | `commit(message)` | drain overlay → new Fossil check-in |
 | `ignore_get` / `ignore_set` | manage the sentinel-file filter |
 
-Writes accumulate in an overlay until `commit`. That gives the agent a "scratchpad" with cheap rollback (just don't commit) and a clean history (one logical commit per task).
+Writes accumulate in an overlay until `commit`, so a task's worth of edits lands as one logical check-in instead of one per write. The overlay is durable — it lives in the same `.fossil` file and survives a restart — but it isn't history: `fossil timeline` and `fossil ls` don't see those writes until something commits them.
 
 ## Use as a CLI
 
 ```sh
-fslite demo                            # serves ./demo-data/repo.fossil on :8080
-fslite demo --repo path/to/any.fossil  # or point at an existing one
-fslite mount                           # mounts at /Volumes/fslite.localhost (macOS)
+fslite demo                       # ephemeral seeded repo in a temp dir, auto-mounted
+fslite open path/to/any.fossil    # or serve a specific repo (created if missing)
 # ...edit in TextEdit, VS Code, vim, whatever...
 fslite commit "what I changed"
 fslite unmount
 fslite stop
 ```
+
+Both pick a free port and mount in Finder on macOS (`--no-mount` to skip). `demo` throws its repo away on exit; `open` persists — Ctrl-C only stops the daemon and unmounts. Pass `--auto-commit=10s` to either for debounced commits instead of explicit `fslite commit`.
 
 For multi-agent setups, give each daemon its own port + repo:
 
