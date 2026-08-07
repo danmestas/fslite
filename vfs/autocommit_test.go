@@ -60,24 +60,44 @@ func TestAutoCommitDebounces(t *testing.T) {
 func TestAutoCommitResetsOnBurst(t *testing.T) {
 	repoPath := newSeededRepoForAutoCommit(t)
 
+	// Generous relative to scheduler jitter: each write has to land within
+	// `window` of the previous one for the burst to stay a burst, and 750ms
+	// of slack is a lot more forgiving than the 120ms this test used to run
+	// on. Wall-clock cost is a couple of seconds.
+	const (
+		window = 1 * time.Second
+		gap    = 250 * time.Millisecond
+	)
+
 	v, err := vfs.New(vfs.Config{
 		RepoPath:     repoPath,
 		Version:      "tip",
 		EnableWrites: true,
 		User:         "test",
-		AutoCommit:   200 * time.Millisecond,
+		AutoCommit:   window,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer v.Close()
 
-	// Burst of 4 writes, 80ms apart — total burst 240ms. Each resets
-	// the 200ms timer. Commit shouldn't have happened by the end of
-	// the burst.
+	// Burst of 4 writes, one gap apart. Each resets the timer, so nothing
+	// should have committed by the end of the burst.
+	//
+	// The assertion only holds while every gap stays under the window —
+	// that is the premise of the test, not the thing under test. A loaded
+	// machine (Windows CI is the usual offender) can stall a write past the
+	// window, at which point a commit is correct behaviour rather than a
+	// bug, so measure the gaps and skip instead of reporting a false
+	// failure.
+	var maxGap time.Duration
 	for i := 0; i < 4; i++ {
+		start := time.Now()
 		writeViaOpenFile(t, v, "burst-"+timestamp(i), []byte("x"))
-		time.Sleep(80 * time.Millisecond)
+		time.Sleep(gap)
+		if elapsed := time.Since(start); elapsed > maxGap {
+			maxGap = elapsed
+		}
 	}
 
 	// Right after the burst: nothing in the manifest yet (the timer
@@ -86,11 +106,15 @@ func TestAutoCommitResetsOnBurst(t *testing.T) {
 	_, statErr := v2.Stat("burst-0")
 	v2.Close()
 	if statErr == nil {
+		if maxGap >= window {
+			t.Skipf("machine stalled mid-burst: slowest write+gap was %v, debounce window is %v; "+
+				"a commit during the burst is correct under those timings", maxGap, window)
+		}
 		t.Error("commit fired during burst; debounce reset not working")
 	}
 
-	// 300ms more (well past the 200ms window) → committed.
-	time.Sleep(300 * time.Millisecond)
+	// Well past the window → committed.
+	time.Sleep(window + window/2)
 	v3, _ := vfs.New(vfs.Config{RepoPath: repoPath, Version: "tip"})
 	defer v3.Close()
 	if _, err := v3.Stat("burst-0"); err != nil {
