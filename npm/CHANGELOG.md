@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.1.5] — 2026-08-07
+
+Mounting a repo and saving a file from a Linux editor now works. It
+didn't before, and the failure was quiet enough to be worse than a
+crash: the save was lost and the editor's leftover temp file was
+committed in its place.
+
+### Fixed
+
+- **Atomic saves over a Linux `davfs2` mount.** A MOVE that carried a
+  lock token for the source only was refused with 412, which surfaces
+  as `Input/output error` at the mount. davfs2 produces exactly that
+  exchange on every editor save: it locks the temp file it just wrote,
+  then renames it over the target, correctly sending no token for the
+  unlocked destination. RFC 4918 only requires a token for resources
+  that are actually locked; the in-memory lock system demanded one for
+  both. The NATS-backed lock system already had the permissive rule, so
+  behaviour no longer depends on whether sync happens to be enabled.
+  Destinations genuinely held by another client are still refused.
+
+- **Files created but never written were dropped.** `OpenFile` with
+  `O_CREATE` followed by `Close` with no intervening `Write` left
+  nothing behind, because only a write marked the handle dirty. LOCK on
+  an unmapped URL is specified to create an empty locked resource
+  (RFC 4918 §9.10.4) and is implemented exactly that way, so the lock
+  reported success while the resource never existed. The same bug
+  swallowed `: > file` truncations.
+
+- **Check-ins now follow the repository's `hash-policy`** (via
+  go-libfossil v0.9.0). Artifacts were always written with SHA1, so the
+  first commit into a modern SHA3-256 repository rewrote every file's
+  manifest entry and `fossil diff` reported the whole tree as changed
+  after a one-file edit. Repository integrity was never affected.
+
+- **README corrections.** `fslite demo` has had no `--repo` flag since
+  it split from `fslite open`, and the overlay was described as
+  offering "cheap rollback (just don't commit)" — it is durable state
+  inside the `.fossil` file, so not committing discards nothing.
+
+### Changed
+
+- The libfossil dependency moved to `github.com/danmestas/go-libfossil`
+  (upstream module rename) and was upgraded to v0.9.0.
+
+### Added
+
+- CI now covers Windows (unit suite plus a WebDAV protocol run against
+  a live daemon) and mounts the daemon with `davfs2` on a native x86-64
+  runner, driving it the way an editor does — so the bugs above stay
+  fixed.
+
 ## [0.1.4] — 2026-05-24
 
 ### Added
