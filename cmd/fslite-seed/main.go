@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/danmestas/libfossil"
+	"github.com/danmestas/go-libfossil"
 
 	// Driver registration via the build-tagged file in engine/. Importing
 	// it here keeps this binary self-contained without duplicating the

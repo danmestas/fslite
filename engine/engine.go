@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/danmestas/libfossil"
+	"github.com/danmestas/go-libfossil"
 )
 
 // FileEntry is metadata for a single file in a checkin.

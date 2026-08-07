@@ -362,7 +362,7 @@ Module path is `github.com/danmestas/fslite`.
 
 - ~~Does the existing `go-libfossil` binding expose enough of the
   manifest-walk and blob-read API, or do we need to extend it?~~
-  **Resolved 2026-05-23.** libfossil (now `github.com/danmestas/libfossil`,
+  **Resolved 2026-05-23.** libfossil (now `github.com/danmestas/go-libfossil`,
   v0.1.0) exposes both ends of what the VFS needs on the public root
   `*Repo` API:
   - **Lazy read by path:** `Repo.ReadFile(rid, path) ([]byte, error)`
