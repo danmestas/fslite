@@ -1,0 +1,87 @@
+name: Release assets
+
+# Builds fslite for every supported platform and attaches the archives to the
+# GitHub release, so people can mount a repo without installing a Go toolchain.
+#
+# Everything is pure Go with CGO disabled, so all six targets cross-compile
+# from one Linux runner — no build matrix needed.
+#
+# Runs on a vX.Y.Z tag. Can also be dispatched by hand against an existing tag,
+# which is how assets get added to a release that was cut before this existed.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and attach assets to (e.g. v0.1.5)"
+        required: true
+
+permissions:
+  contents: write # upload release assets
+  id-token: write # provenance attestation
+  attestations: write
+
+jobs:
+  assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+
+      - name: Build every target
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          mkdir -p dist
+
+          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            os="${target%/*}"
+            arch="${target#*/}"
+            stem="fslite_${version}_${os}_${arch}"
+            work="dist/${stem}"
+            mkdir -p "$work"
+
+            binary="fslite"
+            [ "$os" = "windows" ] && binary="fslite.exe"
+
+            echo "building $target"
+            GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 \
+              go build -buildvcs=false -trimpath -ldflags="-s -w" \
+              -o "$work/$binary" ./cmd/fslite
+
+            cp LICENSE README.md "$work/"
+
+            # zip for Windows, tar.gz everywhere else — what each platform's
+            # users can open without installing anything.
+            if [ "$os" = "windows" ]; then
+              (cd dist && zip -qr "${stem}.zip" "$stem")
+            else
+              tar -czf "dist/${stem}.tar.gz" -C dist "$stem"
+            fi
+            rm -rf "$work"
+          done
+
+          (cd dist && sha256sum * > SHA256SUMS)
+          ls -lh dist
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: "dist/*.tar.gz,dist/*.zip"
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: gh release upload "$TAG" dist/* --clobber
