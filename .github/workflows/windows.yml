@@ -1,0 +1,55 @@
+name: Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: unit + integration tests (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Unit + integration tests
+        run: go test -buildvcs=false -timeout 10m ./engine/... ./vfs/...
+
+  webdav:
+    name: WebDAV over HTTP (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+
+      - name: Build fslite.exe
+        run: go build -buildvcs=false -o fslite.exe ./cmd/fslite
+
+      # The WebDAV protocol surface is exercised with curl.exe (shipped with
+      # Windows Server 2022), so this job proves the daemon itself works on
+      # Windows regardless of whether the box can map a drive.
+      - name: WebDAV protocol suite
+        shell: pwsh
+        run: ./.github/scripts/windows-webdav.ps1
+
+      # Explorer's "Map network drive" goes through the WebClient service (the
+      # WebDAV Redirector). It is not installed on Windows Server images, so
+      # this step reports what it finds rather than gating the build — a real
+      # desktop Windows box is the only place it can be verified for real.
+      - name: Map a drive via the WebDAV Redirector (informational)
+        shell: pwsh
+        continue-on-error: true
+        run: ./.github/scripts/windows-mapdrive.ps1
