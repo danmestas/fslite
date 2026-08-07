@@ -12,9 +12,14 @@ fslite is that way. You mount the repo; they see a folder.
 
 ## Quick start
 
+Grab a binary from the [latest release](https://github.com/danmestas/fslite/releases/latest) — macOS, Linux and Windows, Intel and ARM — or:
+
 ```sh
-npm install -g @agent-ops/fslite     # or: git clone … && make build
+npm install -g @agent-ops/fslite     # builds from source; needs Go 1.21+
+git clone https://github.com/danmestas/fslite && cd fslite && make build
 ```
+
+The release archives are unsigned. macOS will refuse to run the binary on first launch; clear the quarantine flag with `xattr -d com.apple.quarantine ./fslite`, or build from source if you'd rather not.
 
 ```sh
 fslite demo                                  # throwaway repo, mounted, cleaned up on exit
