@@ -35,6 +35,33 @@ jobs:
       - name: WASM cross-compile (js)
         run: GOOS=js GOARCH=wasm go build -v ./engine/... ./vfs/...
 
+  linux-mount:
+    name: davfs2 mount e2e (native x86-64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+
+      - name: Install fossil + davfs2
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            fossil davfs2 cadaver sqlite3
+
+      - name: Build fslite
+        run: go build -buildvcs=false -o fslite ./cmd/fslite
+
+      # Mounts the daemon with davfs2 (locking left at its default) and drives
+      # it the way an editor does: read, atomic save via write-temp-then-rename,
+      # drop in a new file, commit, then verify with the fossil CLI that exactly
+      # the intended files changed.
+      - name: Mount it and use it like a folder
+        run: ./.github/scripts/linux-davfs2.sh
+
   docker-e2e:
     name: cross-container e2e (docker)
     runs-on: ubuntu-latest
