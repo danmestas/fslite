@@ -23,8 +23,8 @@ import (
 // V1 scope: exclusive (non-shared) locks, depth-0 (single file). Most
 // WebDAV clients in the editing path (Office, VS Code) only use these.
 type natsLockSystem struct {
-	kv      jetstream.KeyValue
-	agentID string
+	kv        jetstream.KeyValue
+	agentID   string
 	opTimeout time.Duration
 
 	mu     sync.Mutex

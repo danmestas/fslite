@@ -35,10 +35,10 @@ import (
 // Tools exposed: list, stat, read, write, mkdir, delete, rename,
 // commit, ignore_get, ignore_set.
 type mcpCmd struct {
-	RepoPath string `name:"repo" env:"REPO_PATH" help:"Fossil repo path (required)."`
-	SeedRepo string `name:"seed" env:"SEED_REPO" help:"Optional seed repo to copy on first start."`
-	User     string `name:"user" default:"fslite-mcp" help:"Fossil user attribution for commits issued via the commit tool."`
-	Version  string `name:"version" default:"tip" help:"Checkin to mount initially (tip / trunk / branch / UUID)."`
+	RepoPath   string        `name:"repo" env:"REPO_PATH" help:"Fossil repo path (required)."`
+	SeedRepo   string        `name:"seed" env:"SEED_REPO" help:"Optional seed repo to copy on first start."`
+	User       string        `name:"user" default:"fslite-mcp" help:"Fossil user attribution for commits issued via the commit tool."`
+	Version    string        `name:"version" default:"tip" help:"Checkin to mount initially (tip / trunk / branch / UUID)."`
 	NoNATS     bool          `name:"no-nats" env:"FSLITE_NO_NATS" default:"true" help:"Local-only mode (skip NATS even if NATS_URL is set)."`
 	AutoCommit time.Duration `name:"auto-commit" env:"FSLITE_AUTO_COMMIT" help:"Debounced auto-commit window. e.g. 10s. Default 0 = agent calls commit() explicitly."`
 }
@@ -165,10 +165,10 @@ func registerFsliteTools(server *mcp.Server, v *vfs.VFS) {
 
 	// write
 	type writeArgs struct {
-		Path     string `json:"path"`
-		Content  string `json:"content" jsonschema:"file content; if base64=true this is decoded first"`
-		Base64   bool   `json:"base64,omitempty"`
-		Executable bool `json:"executable,omitempty" jsonschema:"set the executable bit (mode 0755)"`
+		Path       string `json:"path"`
+		Content    string `json:"content" jsonschema:"file content; if base64=true this is decoded first"`
+		Base64     bool   `json:"base64,omitempty"`
+		Executable bool   `json:"executable,omitempty" jsonschema:"set the executable bit (mode 0755)"`
 	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "write",

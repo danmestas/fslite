@@ -139,9 +139,9 @@ type webdavFile struct {
 	name string
 }
 
-func (w *webdavFile) Read(p []byte) (int, error)    { return w.file.Read(p) }
-func (w *webdavFile) Close() error                  { return w.file.Close() }
-func (w *webdavFile) Stat() (os.FileInfo, error)    { return w.file.Stat() }
+func (w *webdavFile) Read(p []byte) (int, error) { return w.file.Read(p) }
+func (w *webdavFile) Close() error               { return w.file.Close() }
+func (w *webdavFile) Stat() (os.FileInfo, error) { return w.file.Stat() }
 
 func (w *webdavFile) Seek(offset int64, whence int) (int64, error) {
 	if s, ok := w.file.(io.Seeker); ok {

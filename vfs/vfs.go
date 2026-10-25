@@ -1011,14 +1011,14 @@ func (f *vfsFile) Close() error {
 // vfsWriteFile is a writable handle. Writes accumulate in buf; the buf
 // is flushed to the overlay on Close.
 type vfsWriteFile struct {
-	v       *VFS
-	name    string
-	perm    string
-	buf     []byte
-	offset  int64
-	append  bool
-	dirty   bool
-	closed  bool
+	v      *VFS
+	name   string
+	perm   string
+	buf    []byte
+	offset int64
+	append bool
+	dirty  bool
+	closed bool
 }
 
 func (f *vfsWriteFile) Stat() (fs.FileInfo, error) {

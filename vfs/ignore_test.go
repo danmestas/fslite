@@ -62,14 +62,14 @@ func TestIgnoreMatcherCustomGlob(t *testing.T) {
 	m := newIgnoreMatcher("*.o,*.tmp,build/*", "config")
 
 	cases := map[string]bool{
-		"foo.o":           true,
-		"src/main.o":      true,
-		"draft.tmp":       true,
-		"build/x":         true,
+		"foo.o":      true,
+		"src/main.o": true,
+		"draft.tmp":  true,
+		"build/x":    true,
 		// ".DS_Store" not in this list → keep
-		".DS_Store":       false,
-		"._foo.txt":       false,
-		"src/main.go":     false,
+		".DS_Store":   false,
+		"._foo.txt":   false,
+		"src/main.go": false,
 	}
 	for p, want := range cases {
 		got := m.match(p)
@@ -103,10 +103,10 @@ func TestIgnoreMatcherEmpty(t *testing.T) {
 func TestIgnoreMatcherFullPathPattern(t *testing.T) {
 	m := newIgnoreMatcher("vendor/*,*.lock", "config")
 	cases := map[string]bool{
-		"vendor/x":          true,
-		"go.lock":           true,
-		"src/main.go":       false,
-		"vendor/deep/x.go":  false, // path.Match doesn't recurse without **
+		"vendor/x":         true,
+		"go.lock":          true,
+		"src/main.go":      false,
+		"vendor/deep/x.go": false, // path.Match doesn't recurse without **
 	}
 	for p, want := range cases {
 		got := m.match(p)
