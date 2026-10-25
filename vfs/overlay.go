@@ -1,9 +1,12 @@
 package vfs
 
 import (
+	"bytes"
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"github.com/danmestas/go-libfossil/db"
 )
 
 // overlay represents the workspace_overlay SQLite table that lives inside
@@ -82,10 +85,6 @@ func (v *VFS) overlayPutContent(filePath string, content []byte, perm string, mt
 		mtime:   mtime,
 	}
 	v.overlayMu.Unlock()
-
-	v.sizeMu.Lock()
-	v.sizes[filePath] = int64(len(content))
-	v.sizeMu.Unlock()
 	v.bumpAutoCommit()
 	return nil
 }
@@ -108,25 +107,49 @@ func (v *VFS) overlayMarkDeleted(filePath string, mtime int64) error {
 	v.overlayMu.Lock()
 	v.overlay[filePath] = &overlayEntry{deleted: true, mtime: mtime}
 	v.overlayMu.Unlock()
-
-	v.sizeMu.Lock()
-	delete(v.sizes, filePath)
-	v.sizeMu.Unlock()
 	v.bumpAutoCommit()
 	return nil
 }
 
-// overlayClearAll drops every row in the overlay table inside a single
-// transaction. Called by Commit after a successful drain.
-func (v *VFS) overlayClearAll() error {
-	db := v.eng.Repo().DB()
-	if _, err := db.Exec(`DELETE FROM workspace_overlay`); err != nil {
+// overlayClearSnapshot drops the overlay rows a commit drained: each entry
+// of snap, only while it is unchanged. A write that landed after the
+// snapshot was not committed and must survive; clearing the whole table
+// would wipe it. Writers update the row before the map, so each side is checked
+// against the snapshot on its own: the row is deleted only if it still
+// holds the snapshot's values, and the map entry likewise, and a write
+// racing the clear ends up in both.
+func (v *VFS) overlayClearSnapshot(snap []overlayPathEntry) error {
+	err := v.eng.Repo().DB().WithTx(func(tx *db.Tx) error {
+		for _, s := range snap {
+			// ifnull: the map holds an empty file's content as nil, and the
+			// row may hold it as a zero-length blob.
+			if _, err := tx.Exec(
+				`DELETE FROM workspace_overlay
+				 WHERE path = ? AND deleted = ? AND perm = ? AND mtime = ?
+				   AND ifnull(content, x'') = ifnull(?, x'')`,
+				s.path, s.entry.deleted, s.entry.perm, s.entry.mtime, s.entry.content,
+			); err != nil {
+				return fmt.Errorf("%s: %w", s.path, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
 		return fmt.Errorf("overlay clear: %w", err)
 	}
 	v.overlayMu.Lock()
-	v.overlay = make(map[string]*overlayEntry)
+	for _, s := range snap {
+		if cur, ok := v.overlay[s.path]; ok && cur.equal(s.entry) {
+			delete(v.overlay, s.path)
+		}
+	}
 	v.overlayMu.Unlock()
 	return nil
+}
+
+func (e *overlayEntry) equal(o overlayEntry) bool {
+	return e.deleted == o.deleted && e.perm == o.perm && e.mtime == o.mtime &&
+		bytes.Equal(e.content, o.content)
 }
 
 // overlayLookup returns the overlay entry for the given path, if any.

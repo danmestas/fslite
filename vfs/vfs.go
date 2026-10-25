@@ -11,6 +11,9 @@
 package vfs
 
 import (
+	"crypto/sha1"
+	"crypto/sha3"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -61,6 +64,10 @@ type Config struct {
 	// = disabled (manual `Commit` only). Suggested setting: 10s.
 	// Auto-commits use a generated message ("auto: 3 files in src/").
 	AutoCommit time.Duration
+	// CacheBytes bounds the in-memory cache of expanded file content,
+	// keyed by artifact hash so it survives commits, pulls and renames.
+	// 0 means DefaultCacheBytes (64 MiB); a negative value disables it.
+	CacheBytes int64
 }
 
 // VFS implements fs.FS, fs.ReadDirFS, and fs.StatFS over a Fossil checkin,
@@ -85,8 +92,12 @@ type VFS struct {
 	overlayMu sync.RWMutex
 	overlay   map[string]*overlayEntry
 
+	// sizes memoizes blob.size by artifact hash; blobs holds expanded
+	// content by the same key. Neither is invalidated by a commit or a
+	// pull: a hash names its bytes forever.
 	sizeMu sync.Mutex
 	sizes  map[string]int64
+	blobs  *blobCache
 
 	// sync is nil when SyncConfig is not configured. When non-nil,
 	// Commit publishes notifications and incoming notifications trigger
@@ -151,6 +162,7 @@ func New(cfg Config) (*VFS, error) {
 		manifestFiles: files,
 		overlay:       map[string]*overlayEntry{},
 		sizes:         map[string]int64{},
+		blobs:         newBlobCache(cacheBudget(cfg.CacheBytes)),
 		autoCommit:    cfg.AutoCommit,
 	}
 
@@ -347,7 +359,7 @@ func (v *VFS) Stat(name string) (fs.FileInfo, error) {
 	if n.isDir {
 		return v.dirInfo(name, n), nil
 	}
-	size, err := v.fileSize(name)
+	size, err := v.fileSize(name, n)
 	if err != nil {
 		return nil, &fs.PathError{Op: "stat", Path: name, Err: err}
 	}
@@ -515,11 +527,27 @@ func (v *VFS) Commit(message string) (CheckinID, error) {
 		return CheckinID{}, ErrNothingToCommit
 	}
 
-	rid, uuid, err := v.commitDrain(overlay, message)
+	v.viewMu.RLock()
+	parentRID := v.rid
+	parentFiles := v.manifestFiles
+	v.viewMu.RUnlock()
+
+	plan, partial := planCommit(parentFiles, overlay)
+	if len(plan) == 0 && !partial {
+		// Only tombstones for files no check-in ever held, such as an
+		// editor's temp file renamed over its target: there is nothing
+		// to record. Drop them so they stop hiding their paths.
+		if err := v.overlayClearSnapshot(overlay); err != nil {
+			return CheckinID{}, err
+		}
+		v.rebuildView()
+		return CheckinID{}, ErrNothingToCommit
+	}
+	rid, uuid, err := v.eng.CommitFiles(plan, message, v.user, parentRID, partial)
 	if err != nil {
 		return CheckinID{}, err
 	}
-	if err := v.overlayClearAll(); err != nil {
+	if err := v.overlayClearSnapshot(overlay); err != nil {
 		return CheckinID{RID: rid, UUID: uuid}, err
 	}
 
@@ -534,10 +562,6 @@ func (v *VFS) Commit(message string) (CheckinID, error) {
 	v.view = buildTree(files)
 	v.viewMu.Unlock()
 
-	v.sizeMu.Lock()
-	v.sizes = map[string]int64{}
-	v.sizeMu.Unlock()
-
 	ck := CheckinID{RID: rid, UUID: uuid}
 	if v.sync != nil {
 		_ = v.sync.publishCommit(ck)
@@ -545,69 +569,65 @@ func (v *VFS) Commit(message string) (CheckinID, error) {
 	return ck, nil
 }
 
-// commitDrain reconstructs the target file set from the parent check-in
-// + the overlay deltas and submits it to libfossil. Deletions force the
-// PartialManifest path; pure additions/modifications use the cheaper
-// default-merge path.
-func (v *VFS) commitDrain(overlay []overlayPathEntry, message string) (int64, string, error) {
+// planCommit turns the parent's file list plus the overlay into the file set
+// handed to libfossil, and reports whether the manifest must be spelled out
+// in full (PartialManifest).
+//
+// A tombstone matters only when it names a file the parent tracks. One left
+// by deleting or renaming a file that was created in the overlay and never
+// committed, which is what every editor's write-temp-then-rename save
+// leaves behind, records nothing and must not force the full-tree path.
+// Without a real deletion the changed files alone go in and libfossil
+// carries the rest of the parent forward. With one, every file is named,
+// but each unchanged file is named by the hash the parent already holds, so
+// no content is read for it.
+func planCommit(parentFiles []engine.FileEntry, overlay []overlayPathEntry) ([]engine.CommitFile, bool) {
+	overlayMap := make(map[string]overlayEntry, len(overlay))
+	for _, oe := range overlay {
+		overlayMap[oe.path] = oe.entry
+	}
+	tracked := make(map[string]bool, len(parentFiles))
+	for _, pf := range parentFiles {
+		tracked[pf.Name] = true
+	}
 	hasDeletes := false
 	for _, oe := range overlay {
-		if oe.entry.deleted {
+		if oe.entry.deleted && tracked[oe.path] {
 			hasDeletes = true
 			break
 		}
 	}
 
-	overlayMap := make(map[string]overlayEntry, len(overlay))
-	for _, oe := range overlay {
-		overlayMap[oe.path] = oe.entry
-	}
-
 	var files []engine.CommitFile
-	if hasDeletes {
-		// Reconstruct full tree: parent files (with overlay overrides),
-		// minus tombstones, plus overlay-only additions.
-		parentFiles, err := v.eng.ListFilesAt(v.rid)
-		if err != nil {
-			return 0, "", err
-		}
-		seen := map[string]bool{}
-		for _, pf := range parentFiles {
-			if e, ok := overlayMap[pf.Name]; ok {
-				if e.deleted {
-					seen[pf.Name] = true
-					continue
-				}
-				files = append(files, engine.CommitFile{
-					Name:    pf.Name,
-					Content: e.content,
-					Perm:    e.perm,
-				})
-				seen[pf.Name] = true
-				continue
-			}
-			// Carry forward unchanged: re-read content (libfossil dedups
-			// by hash on store, so no duplicate storage).
-			content, err := v.eng.ReadFile(v.rid, pf.Name)
-			if err != nil {
-				return 0, "", err
-			}
-			files = append(files, engine.CommitFile{Name: pf.Name, Content: content, Perm: pf.Perm})
-			seen[pf.Name] = true
-		}
+	if !hasDeletes {
 		for p, e := range overlayMap {
-			if e.deleted || seen[p] {
+			if e.deleted {
 				continue
 			}
 			files = append(files, engine.CommitFile{Name: p, Content: e.content, Perm: e.perm})
 		}
-	} else {
-		for p, e := range overlayMap {
-			files = append(files, engine.CommitFile{Name: p, Content: e.content, Perm: e.perm})
-		}
+		return files, false
 	}
 
-	return v.eng.CommitFiles(files, message, v.user, v.rid, hasDeletes)
+	seen := make(map[string]bool, len(parentFiles))
+	for _, pf := range parentFiles {
+		seen[pf.Name] = true
+		if e, ok := overlayMap[pf.Name]; ok {
+			if e.deleted {
+				continue
+			}
+			files = append(files, engine.CommitFile{Name: pf.Name, Content: e.content, Perm: e.perm})
+			continue
+		}
+		files = append(files, engine.CommitFile{Name: pf.Name, UUID: pf.UUID, Perm: pf.Perm})
+	}
+	for p, e := range overlayMap {
+		if e.deleted || seen[p] {
+			continue
+		}
+		files = append(files, engine.CommitFile{Name: p, Content: e.content, Perm: e.perm})
+	}
+	return files, true
 }
 
 // ---------------- helpers ----------------
@@ -683,11 +703,11 @@ func (v *VFS) readExisting(filePath string) ([]byte, bool) {
 	if n == nil || n.isDir {
 		return nil, false
 	}
-	data, err := v.eng.ReadFile(v.rid, filePath)
+	data, err := v.readBlob(filePath, n)
 	if err != nil {
 		return nil, false
 	}
-	return data, true
+	return append([]byte(nil), data...), true
 }
 
 func (v *VFS) readWithPerm(filePath string) ([]byte, string, error) {
@@ -704,40 +724,116 @@ func (v *VFS) readWithPerm(filePath string) ([]byte, string, error) {
 	if n.isDir {
 		return nil, "", errIsDir
 	}
-	data, err := v.eng.ReadFile(v.rid, filePath)
+	data, err := v.readBlob(filePath, n)
 	if err != nil {
 		return nil, "", err
 	}
-	return data, n.perm, nil
+	return append([]byte(nil), data...), n.perm, nil
 }
 
-func (v *VFS) fileSize(filePath string) (int64, error) {
-	v.sizeMu.Lock()
-	if sz, ok := v.sizes[filePath]; ok {
-		v.sizeMu.Unlock()
-		return sz, nil
-	}
-	v.sizeMu.Unlock()
+// maxSizeEntries bounds the hash-keyed size memo; past it the memo is
+// dropped and refilled on demand.
+const maxSizeEntries = 1 << 18
 
-	data, err := v.eng.ReadFile(v.rid, filePath)
+// cacheBudget maps Config.CacheBytes to a blob cache limit.
+func cacheBudget(configured int64) int64 {
+	switch {
+	case configured == 0:
+		return DefaultCacheBytes
+	case configured < 0:
+		return 0
+	default:
+		return configured
+	}
+}
+
+// fileSize answers Stat without expanding content. blob.size is the
+// artifact's full size, recorded when it was stored, delta or not, so a
+// directory listing costs one indexed lookup per file instead of one delta
+// chain. A node the store holds no size for (a phantom, or an overlay-only
+// node with no hash) falls back to a read.
+func (v *VFS) fileSize(filePath string, n *node) (int64, error) {
+	if n.uuid != "" {
+		v.sizeMu.Lock()
+		sz, ok := v.sizes[n.uuid]
+		v.sizeMu.Unlock()
+		if ok {
+			return sz, nil
+		}
+		sz, ok, err := v.eng.FileSize(n.uuid)
+		if err != nil {
+			return 0, err
+		}
+		if ok {
+			v.rememberSize(n.uuid, sz)
+			return sz, nil
+		}
+	}
+	data, err := v.readBlob(filePath, n)
 	if err != nil {
 		return 0, err
 	}
-	sz := int64(len(data))
+	return int64(len(data)), nil
+}
+
+func (v *VFS) rememberSize(uuid string, sz int64) {
+	if uuid == "" {
+		return
+	}
 	v.sizeMu.Lock()
-	v.sizes[filePath] = sz
+	if len(v.sizes) >= maxSizeEntries {
+		v.sizes = make(map[string]int64)
+	}
+	v.sizes[uuid] = sz
 	v.sizeMu.Unlock()
-	return sz, nil
+}
+
+// readBlob returns the committed content of filePath at the current
+// check-in, served from the hash-keyed cache when held. The returned slice
+// is shared with the cache: callers that mutate it copy first.
+func (v *VFS) readBlob(filePath string, n *node) ([]byte, error) {
+	if data, ok := v.blobs.get(n.uuid); ok {
+		return data, nil
+	}
+	v.viewMu.RLock()
+	rid := v.rid
+	v.viewMu.RUnlock()
+	data, err := v.eng.ReadFile(rid, filePath)
+	if err != nil {
+		return nil, err
+	}
+	// The read is by path at the current tip, and n may predate a commit or
+	// pull that re-rooted the view, so the bytes can be another artifact's.
+	// Only bytes that hash to n.uuid may be kept under it: a wrong entry
+	// would be served for that hash to every later read.
+	if artifactHashMatches(n.uuid, data) {
+		v.blobs.put(n.uuid, data)
+		v.rememberSize(n.uuid, int64(len(data)))
+	}
+	return data, nil
+}
+
+// artifactHashMatches reports whether data is the artifact named uuid:
+// Fossil names an artifact by the SHA1 (40 hex digits) or SHA3-256 (64)
+// of its bytes.
+func artifactHashMatches(uuid string, data []byte) bool {
+	switch len(uuid) {
+	case sha1.Size * 2:
+		sum := sha1.Sum(data)
+		return hex.EncodeToString(sum[:]) == uuid
+	case 32 * 2:
+		sum := sha3.Sum256(data)
+		return hex.EncodeToString(sum[:]) == uuid
+	default:
+		return false
+	}
 }
 
 func (v *VFS) openManifestFile(filePath string, n *node) (fs.File, error) {
-	data, err := v.eng.ReadFile(v.rid, filePath)
+	data, err := v.readBlob(filePath, n)
 	if err != nil {
 		return nil, &fs.PathError{Op: "open", Path: filePath, Err: err}
 	}
-	v.sizeMu.Lock()
-	v.sizes[filePath] = int64(len(data))
-	v.sizeMu.Unlock()
 	return &vfsFile{
 		info:    v.manifestFileInfo(filePath, n, int64(len(data))),
 		content: data,
@@ -826,6 +922,7 @@ func (v *VFS) dirInfo(dirPath string, _ *node) fs.FileInfo {
 type node struct {
 	isDir    bool
 	perm     string
+	uuid     string // artifact hash of a committed file; empty for overlay-only files
 	children map[string]*node
 }
 
@@ -844,6 +941,7 @@ func buildTree(files []engine.FileEntry) *node {
 			if isLeaf {
 				child.isDir = false
 				child.perm = f.Perm
+				child.uuid = f.UUID
 			} else {
 				child.isDir = true
 				child.children = map[string]*node{}
@@ -1072,7 +1170,7 @@ func (e *dirEntry) Info() (fs.FileInfo, error) {
 	if oe, ok := e.vfs.overlayLookup(e.path); ok && !oe.deleted {
 		return e.vfs.fileInfoForOverlay(e.path, oe), nil
 	}
-	size, err := e.vfs.fileSize(e.path)
+	size, err := e.vfs.fileSize(e.path, e.node)
 	if err != nil {
 		return nil, err
 	}

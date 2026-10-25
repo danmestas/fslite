@@ -119,3 +119,33 @@ func TestStat(t *testing.T) {
 		t.Errorf("expected FileCount 1, got %d", info.FileCount)
 	}
 }
+
+// FileSize reads the recorded artifact size without expanding content, and
+// reports a hash the repository does not hold as not ok.
+func TestFileSize(t *testing.T) {
+	eng, err := engine.Open(createTestRepo(t))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer eng.Close()
+	files, err := eng.ListFiles("tip")
+	if err != nil {
+		t.Fatalf("ListFiles: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("want 1 file, got %d", len(files))
+	}
+	size, ok, err := eng.FileSize(files[0].UUID)
+	if err != nil || !ok {
+		t.Fatalf("FileSize: ok=%v err=%v", ok, err)
+	}
+	if size != int64(len("hello world\n")) {
+		t.Errorf("size = %d, want %d", size, len("hello world\n"))
+	}
+	if _, ok, err := eng.FileSize("0000000000000000000000000000000000000000"); err != nil || ok {
+		t.Errorf("unknown hash: ok=%v err=%v, want not ok and no error", ok, err)
+	}
+	if _, ok, _ := eng.FileSize(""); ok {
+		t.Error("empty hash must not be ok")
+	}
+}

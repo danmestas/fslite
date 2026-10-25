@@ -12,8 +12,8 @@ github.com/chromedp/chromedp v0.15.0 h1:B5abPcaCVetu6GDHsQKj8HbMhDWdiOM52E/TuOfu
 github.com/chromedp/chromedp v0.15.0/go.mod h1:V5szO2ASqoBZsIQ88EfNMRhi9737Equm5HFL9tsBt3Q=
 github.com/chromedp/sysutil v1.1.0 h1:PUFNv5EcprjqXZD9nJb9b/c9ibAbxiYo4exNWZyipwM=
 github.com/chromedp/sysutil v1.1.0/go.mod h1:WiThHUdltqCNKGc4gaU50XgYjwjYIhKWoHGPTUfWTJ8=
-github.com/danmestas/go-libfossil v0.16.1 h1:k9v9r6T8yuALWMA7/wneZlGmessddA6B6XK9GEWs/jM=
-github.com/danmestas/go-libfossil v0.16.1/go.mod h1:srcBH/pQu2vKaebmyTIQcwJ5Jev2PUtL76JQXxEy7mQ=
+github.com/danmestas/go-libfossil v0.16.2-0.20261025222331-446bfb88272c h1:Ugjfg6U54KadWegsjveucgbSACZhdIxxb8iRVp2XI6M=
+github.com/danmestas/go-libfossil v0.16.2-0.20261025222331-446bfb88272c/go.mod h1:srcBH/pQu2vKaebmyTIQcwJ5Jev2PUtL76JQXxEy7mQ=
 github.com/danmestas/go-libfossil/db/driver/modernc v0.3.0 h1:O01NTY1LOkD9rcjneDAti5SC4RGvSARrrWtfnXyehBs=
 github.com/danmestas/go-libfossil/db/driver/modernc v0.3.0/go.mod h1:spdUGmH76DTTxNqmE2BaH3PvzGkilaNYnGQbaHO3T7M=
 github.com/danmestas/go-libfossil/db/driver/ncruces v0.3.0 h1:/0g6Ye9NFh6M9eH2n8shS/ahlyKK9Xtwl9w8K5/MEbE=

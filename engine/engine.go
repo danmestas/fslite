@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -104,6 +106,29 @@ func (e *Engine) ReadFile(rid int64, path string) ([]byte, error) {
 	return data, nil
 }
 
+// FileSize returns the expanded size of the artifact named by uuid without
+// reading its content. Fossil records every artifact's full size in
+// blob.size when it stores it, for a delta as much as for a full blob, so
+// a directory listing can report sizes without expanding a single delta
+// chain. ok is false when the repository does not hold the artifact or
+// holds it as a phantom (size -1); the caller then falls back to a read.
+func (e *Engine) FileSize(uuid string) (size int64, ok bool, err error) {
+	if uuid == "" {
+		return 0, false, nil
+	}
+	err = e.r.DB().QueryRow("SELECT size FROM blob WHERE uuid=?", uuid).Scan(&size)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, false, nil
+		}
+		return 0, false, fmt.Errorf("file size %s: %w", uuid, err)
+	}
+	if size < 0 {
+		return 0, false, nil
+	}
+	return size, true, nil
+}
+
 // Repo returns the underlying libfossil repo handle. Exposed for the VFS
 // layer's overlay table (a SQLite table living inside the same agent repo
 // file). Treat as an escape hatch — prefer the typed methods above.
@@ -130,6 +155,11 @@ type CommitFile struct {
 	Name    string
 	Content []byte
 	Perm    string
+	// UUID, when set, carries the file into the check-in by the hash the
+	// repository already holds, with Content nil: nothing is read or
+	// stored. The overlay drain uses it to name the unchanged part of the
+	// tree when a commit drops files.
+	UUID string
 }
 
 // CommitFiles creates a new check-in with the given files. When
@@ -144,6 +174,7 @@ func (e *Engine) CommitFiles(files []CommitFile, message, user string, parentRID
 			Name:    f.Name,
 			Content: f.Content,
 			Perm:    f.Perm,
+			UUID:    f.UUID,
 		}
 	}
 	rid, uuid, err := e.r.Commit(libfossil.CommitOpts{

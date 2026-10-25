@@ -174,10 +174,6 @@ func (r *SyncRunner) PullFromPeer(peerAgentID string) error {
 	r.v.modTime = time.Now()
 	r.v.viewMu.Unlock()
 	r.v.rebuildView()
-
-	r.v.sizeMu.Lock()
-	r.v.sizes = map[string]int64{}
-	r.v.sizeMu.Unlock()
 	return nil
 }
 
