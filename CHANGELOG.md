@@ -1,6 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.6] — 2026-10-25
+
+A dependency release: fslite now builds on go-libfossil v0.16.1. No
+behaviour of the mount or the MCP server changes.
 
 ### Changed
 
