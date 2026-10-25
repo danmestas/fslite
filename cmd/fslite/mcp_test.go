@@ -21,12 +21,12 @@ import (
 // process, talking through a Pipe transport.
 //
 // The test mirrors the realistic agent workflow:
-//   1. list root → see the seed
-//   2. write a new file
-//   3. read it back, verify bytes
-//   4. commit, verify {rid, uuid} non-zero
-//   5. delete a file, verify it's gone from list
-//   6. ignore_set + ignore_get roundtrip
+//  1. list root → see the seed
+//  2. write a new file
+//  3. read it back, verify bytes
+//  4. commit, verify {rid, uuid} non-zero
+//  5. delete a file, verify it's gone from list
+//  6. ignore_set + ignore_get roundtrip
 func TestMCPServerRoundtrip(t *testing.T) {
 	dir := t.TempDir()
 	repoPath := filepath.Join(dir, "mcp-test.fossil")

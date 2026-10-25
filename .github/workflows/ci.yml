@@ -26,6 +26,9 @@ jobs:
       - name: Build
         run: go build -v ./...
 
+      - name: Format
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; echo "run gofmt -w ." >&2; exit 1; }
+
       - name: Vet
         run: go vet ./...
 

@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-
 	"github.com/danmestas/go-libfossil"
 
 	"github.com/danmestas/fslite/engine"

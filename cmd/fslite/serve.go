@@ -25,16 +25,16 @@ import (
 // Flags are accepted as a convenience for interactive use; env vars win
 // when both are set.
 type serveCmd struct {
-	RepoPath    string `name:"repo" env:"REPO_PATH" default:"/data/repo.fossil" help:"On-disk fossil repo path."`
-	SeedRepo    string `name:"seed" env:"SEED_REPO" help:"Optional seed repo to copy from on first start."`
-	AgentID     string `name:"agent" env:"AGENT_ID" help:"Agent identifier. Default: derived from --repo basename (myproject.fossil → myproject), deconflicted with -2/-3/... against other live daemons."`
-	RandomName  bool   `name:"random-name" help:"Generate a random electric-hyena-style agent name instead of deriving from the repo path."`
-	ProjectCode string `name:"project-code" env:"PROJECT_CODE" help:"Shared project code for autosync peers."`
-	NATSURL     string `name:"nats" env:"NATS_URL" help:"NATS broker URL (enables autosync when set; ignored if --no-nats)."`
-	HTTPAddr    string `name:"http" env:"HTTP_ADDR" default:"0.0.0.0:8080" help:"WebDAV bind address."`
-	NoNATS      bool   `name:"no-nats" env:"FSLITE_NO_NATS" help:"Local-only mode. Skip all NATS wiring even if NATS_URL is set; cross-agent sync + locks are disabled."`
+	RepoPath    string        `name:"repo" env:"REPO_PATH" default:"/data/repo.fossil" help:"On-disk fossil repo path."`
+	SeedRepo    string        `name:"seed" env:"SEED_REPO" help:"Optional seed repo to copy from on first start."`
+	AgentID     string        `name:"agent" env:"AGENT_ID" help:"Agent identifier. Default: derived from --repo basename (myproject.fossil → myproject), deconflicted with -2/-3/... against other live daemons."`
+	RandomName  bool          `name:"random-name" help:"Generate a random electric-hyena-style agent name instead of deriving from the repo path."`
+	ProjectCode string        `name:"project-code" env:"PROJECT_CODE" help:"Shared project code for autosync peers."`
+	NATSURL     string        `name:"nats" env:"NATS_URL" help:"NATS broker URL (enables autosync when set; ignored if --no-nats)."`
+	HTTPAddr    string        `name:"http" env:"HTTP_ADDR" default:"0.0.0.0:8080" help:"WebDAV bind address."`
+	NoNATS      bool          `name:"no-nats" env:"FSLITE_NO_NATS" help:"Local-only mode. Skip all NATS wiring even if NATS_URL is set; cross-agent sync + locks are disabled."`
 	AutoCommit  time.Duration `name:"auto-commit" env:"FSLITE_AUTO_COMMIT" help:"Debounced auto-commit window. e.g. 10s. Default 0 = manual commits only. Each overlay write resets the timer; when it elapses, the overlay drains into a new check-in with a generated message."`
-	Verbose     bool   `name:"verbose" env:"FSLITE_VERBOSE" help:"Log every incoming WebDAV request (method, path, headers)."`
+	Verbose     bool          `name:"verbose" env:"FSLITE_VERBOSE" help:"Log every incoming WebDAV request (method, path, headers)."`
 }
 
 func (s *serveCmd) Run() error {
