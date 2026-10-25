@@ -106,6 +106,18 @@ func (e *Engine) ReadFile(rid int64, path string) ([]byte, error) {
 	return data, nil
 }
 
+// ReadBlob returns the content of the artifact named by uuid, a full
+// lowercase hash such as a file's in ListFilesAt. Reading by hash, not by
+// path at a check-in, skips the manifest lookup and always yields that one
+// artifact.
+func (e *Engine) ReadBlob(uuid string) ([]byte, error) {
+	data, err := e.r.ReadBlob(uuid)
+	if err != nil {
+		return nil, fmt.Errorf("read blob %s: %w", uuid, err)
+	}
+	return data, nil
+}
+
 // FileSize returns the expanded size of the artifact named by uuid without
 // reading its content. Fossil records every artifact's full size in
 // blob.size when it stores it, for a delta as much as for a full blob, so

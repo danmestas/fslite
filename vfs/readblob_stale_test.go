@@ -10,13 +10,13 @@ import (
 	"github.com/danmestas/go-libfossil"
 )
 
-// A read that looked a node up before a commit re-rooted the view reads
-// the file by path at the new tip, so its bytes are not the node's
-// artifact. They must not be cached under the node's hash: the cache is
-// keyed by hash, and a wrong entry would be served to every later read of
-// that hash. The test takes a node at "one", commits "TWO-longer", reads
-// through the stale node with nothing cached, then commits "one" again so
-// the path's hash is the stale node's once more, and expects "one" back.
+// A node looked up before a commit re-rooted the view must still read its
+// own artifact, and only that artifact may be cached under its hash: the
+// cache is keyed by hash, and a wrong entry would be served to every later
+// read of that hash. The test takes a node at "one", commits "TWO-longer",
+// reads through the stale node with nothing cached and expects "one", then
+// commits "one" again so the path's hash is the stale node's once more, and
+// expects "one" back.
 func TestReadBlobDoesNotCacheAnotherArtifactsBytes(t *testing.T) {
 	v := newSeededVFS(t, "a.txt", "one\n")
 
@@ -32,8 +32,10 @@ func TestReadBlobDoesNotCacheAnotherArtifactsBytes(t *testing.T) {
 	v.sizeMu.Lock()
 	v.sizes = make(map[string]int64)
 	v.sizeMu.Unlock()
-	if _, err := v.readBlob("a.txt", stale); err != nil {
+	if got, err := v.readBlob("a.txt", stale); err != nil {
 		t.Fatalf("readBlob(stale): %v", err)
+	} else if string(got) != "one\n" {
+		t.Errorf("stale node read %q, want its own artifact %q", got, "one\n")
 	}
 	commitContent(t, v, "a.txt", "one\n")
 

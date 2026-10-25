@@ -11,9 +11,6 @@
 package vfs
 
 import (
-	"crypto/sha1"
-	"crypto/sha3"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -788,45 +785,30 @@ func (v *VFS) rememberSize(uuid string, sz int64) {
 	v.sizeMu.Unlock()
 }
 
-// readBlob returns the committed content of filePath at the current
-// check-in, served from the hash-keyed cache when held. The returned slice
-// is shared with the cache: callers that mutate it copy first.
+// readBlob returns the content of the committed file n, served from the
+// hash-keyed cache when held. The read is by n's own hash, not by path at
+// the current tip, so a node looked up before a commit or pull re-rooted the
+// view still reads its own artifact, and what is cached under a hash is
+// always that artifact. The returned slice is shared with the cache:
+// callers that mutate it copy first.
 func (v *VFS) readBlob(filePath string, n *node) ([]byte, error) {
+	if n.uuid == "" {
+		// No hash to read or cache by; read the path at the current tip.
+		v.viewMu.RLock()
+		rid := v.rid
+		v.viewMu.RUnlock()
+		return v.eng.ReadFile(rid, filePath)
+	}
 	if data, ok := v.blobs.get(n.uuid); ok {
 		return data, nil
 	}
-	v.viewMu.RLock()
-	rid := v.rid
-	v.viewMu.RUnlock()
-	data, err := v.eng.ReadFile(rid, filePath)
+	data, err := v.eng.ReadBlob(n.uuid)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read %q: %w", filePath, err)
 	}
-	// The read is by path at the current tip, and n may predate a commit or
-	// pull that re-rooted the view, so the bytes can be another artifact's.
-	// Only bytes that hash to n.uuid may be kept under it: a wrong entry
-	// would be served for that hash to every later read.
-	if artifactHashMatches(n.uuid, data) {
-		v.blobs.put(n.uuid, data)
-		v.rememberSize(n.uuid, int64(len(data)))
-	}
+	v.blobs.put(n.uuid, data)
+	v.rememberSize(n.uuid, int64(len(data)))
 	return data, nil
-}
-
-// artifactHashMatches reports whether data is the artifact named uuid:
-// Fossil names an artifact by the SHA1 (40 hex digits) or SHA3-256 (64)
-// of its bytes.
-func artifactHashMatches(uuid string, data []byte) bool {
-	switch len(uuid) {
-	case sha1.Size * 2:
-		sum := sha1.Sum(data)
-		return hex.EncodeToString(sum[:]) == uuid
-	case 32 * 2:
-		sum := sha3.Sum256(data)
-		return hex.EncodeToString(sum[:]) == uuid
-	default:
-		return false
-	}
 }
 
 func (v *VFS) openManifestFile(filePath string, n *node) (fs.File, error) {
