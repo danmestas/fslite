@@ -11,6 +11,9 @@
 package vfs
 
 import (
+	"crypto/sha1"
+	"crypto/sha3"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -534,7 +537,7 @@ func (v *VFS) Commit(message string) (CheckinID, error) {
 		// Only tombstones for files no check-in ever held, such as an
 		// editor's temp file renamed over its target: there is nothing
 		// to record. Drop them so they stop hiding their paths.
-		if err := v.overlayClearAll(); err != nil {
+		if err := v.overlayClearSnapshot(overlay); err != nil {
 			return CheckinID{}, err
 		}
 		v.rebuildView()
@@ -544,7 +547,7 @@ func (v *VFS) Commit(message string) (CheckinID, error) {
 	if err != nil {
 		return CheckinID{}, err
 	}
-	if err := v.overlayClearAll(); err != nil {
+	if err := v.overlayClearSnapshot(overlay); err != nil {
 		return CheckinID{RID: rid, UUID: uuid}, err
 	}
 
@@ -799,9 +802,31 @@ func (v *VFS) readBlob(filePath string, n *node) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	v.blobs.put(n.uuid, data)
-	v.rememberSize(n.uuid, int64(len(data)))
+	// The read is by path at the current tip, and n may predate a commit or
+	// pull that re-rooted the view, so the bytes can be another artifact's.
+	// Only bytes that hash to n.uuid may be kept under it: a wrong entry
+	// would be served for that hash to every later read.
+	if artifactHashMatches(n.uuid, data) {
+		v.blobs.put(n.uuid, data)
+		v.rememberSize(n.uuid, int64(len(data)))
+	}
 	return data, nil
+}
+
+// artifactHashMatches reports whether data is the artifact named uuid:
+// Fossil names an artifact by the SHA1 (40 hex digits) or SHA3-256 (64)
+// of its bytes.
+func artifactHashMatches(uuid string, data []byte) bool {
+	switch len(uuid) {
+	case sha1.Size * 2:
+		sum := sha1.Sum(data)
+		return hex.EncodeToString(sum[:]) == uuid
+	case 32 * 2:
+		sum := sha3.Sum256(data)
+		return hex.EncodeToString(sum[:]) == uuid
+	default:
+		return false
+	}
 }
 
 func (v *VFS) openManifestFile(filePath string, n *node) (fs.File, error) {
