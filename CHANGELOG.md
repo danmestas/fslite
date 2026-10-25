@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **go-libfossil v0.16.1.** Up from v0.9.0. This picks up seven releases
+  of sync and repository fixes, including delta-chain bounds that keep a
+  malformed push from holding the write lock. See go-libfossil's
+  changelog for the full list.
+
 ## [0.1.5] — 2026-08-07
 
 Mounting a repo and saving a file from a Linux editor now works. It
