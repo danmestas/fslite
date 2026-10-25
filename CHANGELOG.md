@@ -36,8 +36,13 @@ editor's ordinary save no longer costs the whole tree at commit.
   is invalidated by a commit, a pull or a rename, because a hash names its
   bytes forever; the old path-keyed size cache was wiped on each of those.
 
-- **go-libfossil** is pinned to the commit that adds `FileToCommit.UUID`,
-  ahead of its next release.
+- **Files are read by hash.** A committed file is read by its own artifact
+  hash (go-libfossil's `Repo.ReadBlob`), not by path at the current
+  check-in, so a read skips the manifest lookup, and a read that raced a
+  commit or pull returns the file it looked up rather than the new tip's.
+
+- **go-libfossil** is pinned to an unreleased commit that adds
+  `FileToCommit.UUID` and `Repo.ReadBlob`, ahead of its next release.
 
 ## [0.1.6] — 2026-10-25
 
