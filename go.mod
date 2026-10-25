@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/alecthomas/kong v1.15.0
-	github.com/danmestas/go-libfossil v0.16.2-0.20261025210825-d133817bbc8a
+	github.com/danmestas/go-libfossil v0.16.2-0.20261025222331-446bfb88272c
 	github.com/danmestas/go-libfossil/db/driver/modernc v0.3.0
 	github.com/danmestas/go-libfossil/db/driver/ncruces v0.3.0
 	github.com/modelcontextprotocol/go-sdk v1.6.1
