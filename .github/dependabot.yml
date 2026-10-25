@@ -1,0 +1,17 @@
+# Keep go-libfossil current. A new go-libfossil release, or a new release
+# of its db drivers, is picked up within a day as a pull request that CI
+# then tests on every platform fslite ships for.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: daily
+    allow:
+      - dependency-name: "github.com/danmestas/go-libfossil*"
+    groups:
+      go-libfossil:
+        patterns:
+          - "github.com/danmestas/go-libfossil*"
+    commit-message:
+      prefix: "build(deps)"
