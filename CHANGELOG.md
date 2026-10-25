@@ -1,5 +1,44 @@
 # Changelog
 
+## [Unreleased]
+
+A directory listing no longer decompresses every file in it, and an
+editor's ordinary save no longer costs the whole tree at commit.
+
+### Changed
+
+- **Stat reads a size, not a file.** `Stat` and `ReadDir` reported a
+  file's size by reading its entire content and measuring it, once per
+  path per check-in. Finder and davfs2 list a directory before almost
+  every operation, so a listing expanded every delta chain in the
+  directory. The size now comes from the repository's own `blob.size`,
+  which Fossil records for every artifact when it stores it, through a
+  single indexed lookup by hash. A hash the store does not hold falls
+  back to a read.
+
+- **A deletion commit names unchanged files by hash.** A commit that
+  dropped a file spelled the manifest out in full and re-read every
+  unchanged file's content to do it. Unchanged files are now carried by
+  the hash the parent already holds (`FileToCommit.UUID`, new in
+  go-libfossil), so a delete reads nothing it does not change.
+
+- **A temp-file tombstone is not a deletion.** Every editor's atomic save
+  writes a temp file and renames it over the target, which left a
+  tombstone for a path no check-in ever held. That tombstone pushed every
+  such commit onto the full-manifest path. Tombstones now count as
+  deletions only when they name a file the parent tracks; a commit left
+  with nothing but stale tombstones clears them and reports
+  `ErrNothingToCommit`.
+
+- **Content and sizes are cached by hash.** Expanded file content lives in
+  a byte-bounded LRU keyed by artifact hash (`Config.CacheBytes`, default
+  64 MiB, negative disables), and sizes are memoized the same way. Neither
+  is invalidated by a commit, a pull or a rename, because a hash names its
+  bytes forever; the old path-keyed size cache was wiped on each of those.
+
+- **go-libfossil** is pinned to the commit that adds `FileToCommit.UUID`,
+  ahead of its next release.
+
 ## [0.1.6] — 2026-10-25
 
 A dependency release: fslite now builds on go-libfossil v0.16.1. No

@@ -82,10 +82,6 @@ func (v *VFS) overlayPutContent(filePath string, content []byte, perm string, mt
 		mtime:   mtime,
 	}
 	v.overlayMu.Unlock()
-
-	v.sizeMu.Lock()
-	v.sizes[filePath] = int64(len(content))
-	v.sizeMu.Unlock()
 	v.bumpAutoCommit()
 	return nil
 }
@@ -108,10 +104,6 @@ func (v *VFS) overlayMarkDeleted(filePath string, mtime int64) error {
 	v.overlayMu.Lock()
 	v.overlay[filePath] = &overlayEntry{deleted: true, mtime: mtime}
 	v.overlayMu.Unlock()
-
-	v.sizeMu.Lock()
-	delete(v.sizes, filePath)
-	v.sizeMu.Unlock()
 	v.bumpAutoCommit()
 	return nil
 }
