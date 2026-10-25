@@ -71,6 +71,19 @@ func lockRequestBody(owner, root string) string {
 	}, "")
 }
 
+// waitForSync blocks until v can stat name, which a peer's commit delivers
+// through the NATS commit notification and the pull it triggers. A fixed
+// sleep here made the lock tests race the pull: under the race detector, or
+// on a slow runner, agent B's LOCK landed before the file arrived, so it
+// created an empty resource and answered 201 instead of locking the file.
+func waitForSync(t *testing.T, v *vfs.VFS, name string) {
+	t.Helper()
+	pollUntil(t, 10*time.Second, func() error {
+		_, err := v.Stat(name)
+		return err
+	})
+}
+
 // startWebDAVTestServer returns a base URL for the agent's WebDAV handler
 // served via httptest. Cleanup is registered on t.
 func startWebDAVTestServer(t *testing.T, v *vfs.VFS) string {
@@ -96,7 +109,7 @@ func TestLockAcquiredOnOneAgentBlocksOther(t *testing.T) {
 	if _, err := vA.Commit("seed shared"); err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
-	time.Sleep(100 * time.Millisecond)
+	waitForSync(t, vB, "shared.txt")
 
 	body := lockRequestBody("agentA", "/shared.txt")
 	lockA := httpDo(t, "LOCK", urlA+"/shared.txt", []byte(body), map[string]string{
@@ -132,7 +145,7 @@ func TestUnlockOnOneAgentClearsTheOther(t *testing.T) {
 	if _, err := vA.Commit("seed"); err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
-	time.Sleep(100 * time.Millisecond)
+	waitForSync(t, vB, "shared.txt")
 
 	// A locks
 	lockA := httpDo(t, "LOCK", urlA+"/shared.txt",
@@ -185,7 +198,7 @@ func TestLocksDifferentPathsCoexist(t *testing.T) {
 	if _, err := vA.Commit("seed"); err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
-	time.Sleep(100 * time.Millisecond)
+	waitForSync(t, vB, "b.txt")
 
 	for _, c := range []struct {
 		url, path string
