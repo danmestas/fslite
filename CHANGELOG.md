@@ -41,8 +41,8 @@ editor's ordinary save no longer costs the whole tree at commit.
   check-in, so a read skips the manifest lookup, and a read that raced a
   commit or pull returns the file it looked up rather than the new tip's.
 
-- **go-libfossil** is pinned to an unreleased commit that adds
-  `FileToCommit.UUID` and `Repo.ReadBlob`, ahead of its next release.
+- **go-libfossil v0.16.2**, which adds `FileToCommit.UUID` and
+  `Repo.ReadBlob`.
 
 ## [0.1.6] — 2026-10-25
 
