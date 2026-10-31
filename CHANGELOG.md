@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Install with a script, not npm.** `install.sh` (macOS and Linux) and
+  `install.ps1` (Windows) download the release archive for the machine,
+  check it against the release's `SHA256SUMS`, and install the binary.
+  The npm package built fslite from source and needed Go; it is no longer
+  published, and 0.1.7 is its last version.
+
 ## [0.1.7] — 2026-10-31
 
 A directory listing no longer decompresses every file in it, and an
