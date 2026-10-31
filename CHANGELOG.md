@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.7] — 2026-10-31
+
 A directory listing no longer decompresses every file in it, and an
 editor's ordinary save no longer costs the whole tree at commit.
 
@@ -41,8 +43,10 @@ editor's ordinary save no longer costs the whole tree at commit.
   check-in, so a read skips the manifest lookup, and a read that raced a
   commit or pull returns the file it looked up rather than the new tip's.
 
-- **go-libfossil v0.16.2**, which adds `FileToCommit.UUID` and
-  `Repo.ReadBlob`.
+- **go-libfossil v0.17.0**, up from v0.16.1. v0.16.2 added
+  `FileToCommit.UUID` and `Repo.ReadBlob`; v0.17.0 brings horizon and
+  sync fixes and smaller WebAssembly builds. fslite sets no horizon seed
+  key, so v0.17.0's `sshverify` opt-in needs nothing here.
 
 ## [0.1.6] — 2026-10-25
 
