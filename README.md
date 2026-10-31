@@ -12,14 +12,25 @@ fslite is that way. You mount the repo; they see a folder.
 
 ## Quick start
 
-Grab a binary from the [latest release](https://github.com/danmestas/fslite/releases/latest) — macOS, Linux and Windows, Intel and ARM — or:
+Install the latest release on macOS or Linux, Intel or ARM:
 
 ```sh
-npm install -g @agent-ops/fslite     # builds from source; needs Go 1.21+
-git clone https://github.com/danmestas/fslite && cd fslite && make build
+curl -fsSL https://raw.githubusercontent.com/danmestas/fslite/main/install.sh | sh
 ```
 
-The release archives are unsigned. macOS will refuse to run the binary on first launch; clear the quarantine flag with `xattr -d com.apple.quarantine ./fslite`, or build from source if you'd rather not.
+or on Windows, in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/danmestas/fslite/main/install.ps1 | iex
+```
+
+The script checks the archive against the release's `SHA256SUMS` and installs `fslite` to `~/.local/bin` (on Windows, `%LOCALAPPDATA%\Programs\fslite`). Set `FSLITE_INSTALL_DIR` to put it elsewhere, or `FSLITE_VERSION=v0.1.7` to install a particular release.
+
+You can also download an archive from the [latest release](https://github.com/danmestas/fslite/releases/latest) yourself. The binaries are unsigned, so on macOS a browser download will not run until you clear its quarantine flag with `xattr -d com.apple.quarantine ./fslite`; the install script's download carries no such flag. To build from source:
+
+```sh
+git clone https://github.com/danmestas/fslite && cd fslite && make build
+```
 
 ```sh
 fslite demo                                  # throwaway repo, mounted, cleaned up on exit
